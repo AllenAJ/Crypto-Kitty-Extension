@@ -257,7 +257,7 @@ const CryptoKittyDesigner: React.FC = () => {
           <div className="text-red-500 absolute">{error}</div>
         )}
         <div className="kitty-svg-container relative w-96 h-96">
-          {!isLoading && !error && (
+          {!isLoading && !error && (    
             <>
               <div dangerouslySetInnerHTML={{ __html: kittyParts.body }} className="absolute inset-0 z-10 transition-opacity duration-300" />
               <div dangerouslySetInnerHTML={{ __html: kittyParts.mouth }} className="absolute inset-0 z-20 transition-opacity duration-300" />
@@ -350,15 +350,19 @@ const CryptoKittyDesigner: React.FC = () => {
               <div className="mb-6">
                 <h2 className="text-xl font-semibold mb-3">Eyes</h2>
                 <div className="flex flex-wrap gap-2">
-                {Object.entries(Colors.eyeColor).map(([colorName, colorValue]) => (
-  <button
-    key={colorName}
-    onClick={() => handleColorChange('eyeColor', colorName)}
-    className={getColorButtonClass('eyeColor', colorName)}
-    style={{ backgroundColor: colorValue }}
-    title={colorName}
-  />
-))}
+                  {Object.values(EyeType).map(eyeType => (
+                    <button
+                      key={eyeType}
+                      onClick={() => setSelectedEye(eyeType)}
+                      className={`px-4 py-2 rounded-lg transition-all ${
+                        selectedEye === eyeType
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      }`}
+                    >
+                      {eyeType}
+                    </button>
+                  ))}
                 </div>
               </div>
 
