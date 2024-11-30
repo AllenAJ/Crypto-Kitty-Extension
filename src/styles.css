@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* SVG Container Styles */
+.kitty-svg-container {
+  width: 300px;
+  height: 300px;
+  position: relative;
+}
+
+.kitty-svg-container > div {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.kitty-svg-container svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  preserveAspectRatio: xMidYMid meet;
+}
+
+/* SVG Element Animations */
+.kitty-svg-container svg path,
+.kitty-svg-container svg circle,
+.kitty-svg-container svg rect,
+.kitty-svg-container svg ellipse {
+  transition: fill 0.3s ease-in-out;
+}
+
+/* Button Styles and Animations */
+.button-hover-effect {
+  transition: all 0.2s ease-in-out;
+}
+
+.button-hover-effect:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Color Picker Styles */
+.color-picker-item {
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+}
+
+.color-picker-item:hover {
+  transform: scale(1.1);
+}
+
+/* Loading Animation */
+.loading-spinner {
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #3498db;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
