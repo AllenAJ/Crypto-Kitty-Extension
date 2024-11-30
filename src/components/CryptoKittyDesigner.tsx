@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 // Enums
 enum BodyType {
@@ -110,7 +110,9 @@ const CryptoKittyDesigner: React.FC = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [eyePosition, setEyePosition] = useState({ x: 0, y: 0 });
+  
   const replaceColors = (svgContent: string, svgType: 'body' | 'eyes' | 'mouth') => {
     let result = svgContent;
 
@@ -223,9 +225,39 @@ const CryptoKittyDesigner: React.FC = () => {
     }
   };
 
-  useEffect(() => {
+// Effect for loading SVG content
+useEffect(() => {
     loadSvgContent();
   }, [selectedBody, selectedPattern, selectedEye, selectedMouth, selectedColors]);
+  
+  // Separate effect for mouse movement
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!containerRef.current) return;
+  
+      const container = containerRef.current;
+      const rect = container.getBoundingClientRect();
+      
+      // Calculate the center of the container
+      const containerCenterX = rect.left + rect.width / 2;
+      const containerCenterY = rect.top + rect.height / 2;
+      
+      // Calculate the angle between cursor and center
+      const angle = Math.atan2(e.clientY - containerCenterY, e.clientX - containerCenterX);
+      
+      // Maximum movement radius (in pixels)
+      const maxRadius = 1;
+      
+      // Calculate new position
+      const x = Math.cos(angle) * maxRadius;
+      const y = Math.sin(angle) * maxRadius;
+      
+      setEyePosition({ x, y });
+    };
+  
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []); // Empty dependency array since we don't need to recreate this listener
 
   const generateRandomKitty = () => {
     setSelectedBody(Object.values(BodyType)[Math.floor(Math.random() * Object.values(BodyType).length)]);
@@ -256,15 +288,22 @@ const CryptoKittyDesigner: React.FC = () => {
         {error && (
           <div className="text-red-500 absolute">{error}</div>
         )}
-        <div className="kitty-svg-container relative w-96 h-96">
-          {!isLoading && !error && (    
-            <>
-              <div dangerouslySetInnerHTML={{ __html: kittyParts.body }} className="absolute inset-0 z-10 transition-opacity duration-300" />
-              <div dangerouslySetInnerHTML={{ __html: kittyParts.mouth }} className="absolute inset-0 z-20 transition-opacity duration-300" />
-              <div dangerouslySetInnerHTML={{ __html: kittyParts.eyes }} className="absolute inset-0 z-30 transition-opacity duration-300" />
-            </>
-          )}
-        </div>
+<div className="kitty-svg-container relative w-96 h-96" ref={containerRef}>
+  {!isLoading && !error && (
+    <>
+      <div dangerouslySetInnerHTML={{ __html: kittyParts.body }} className="absolute inset-0 z-10" />
+      <div dangerouslySetInnerHTML={{ __html: kittyParts.mouth }} className="absolute inset-0 z-20" />
+      <div 
+        dangerouslySetInnerHTML={{ __html: kittyParts.eyes }} 
+        className="absolute inset-0 z-30"
+        style={{
+          transform: `translate(${eyePosition.x}px, ${eyePosition.y}px)`,
+          transition: 'transform 0.1s ease-out'
+        }}
+      />
+    </>
+  )}
+</div>
       </div>
 
           {/* Controls */}
