@@ -5,9 +5,11 @@ import AuthScreen from './components/AuthScreen';
 function App() {
   return (
     <AuthProvider>
-      <div className="App">
+      <div className="min-h-screen bg-gray-50 py-12">
         <AuthScreen />
-        <CryptoKittyDesigner />
+        <div className="mt-8">
+          <CryptoKittyDesigner />
+        </div>
       </div>
     </AuthProvider>
   );

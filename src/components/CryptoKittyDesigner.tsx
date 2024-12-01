@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { saveUserPreferences, getUserPreferences } from '../services/userPreferences';
 
 // Enums
 enum BodyType {
@@ -52,7 +53,8 @@ interface KittyParts {
 }
 
 const CryptoKittyDesigner: React.FC = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user, userId } = useAuth();
+  const [preferencesLoading, setPreferencesLoading] = useState(false);
 
   // Color definitions
   const Colors = {
@@ -215,24 +217,81 @@ const CryptoKittyDesigner: React.FC = () => {
     }
   };
 
+  const savePreferences = async () => {
+    if (!user || !userId) return;
+  
+    try {
+      await saveUserPreferences(user, {
+        selectedBody,
+        selectedPattern,
+        selectedEye,
+        selectedMouth,
+        selectedColors
+      }, userId);
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+    }
+  };
+
   const generateRandomKitty = () => {
     setSelectedBody(Object.values(BodyType)[Math.floor(Math.random() * Object.values(BodyType).length)]);
     setSelectedPattern(Object.values(PatternType)[Math.floor(Math.random() * Object.values(PatternType).length)]);
     setSelectedEye(Object.values(EyeType)[Math.floor(Math.random() * Object.values(EyeType).length)]);
     setSelectedMouth(Object.values(MouthType)[Math.floor(Math.random() * Object.values(MouthType).length)]);
     
-    setSelectedColors({
+    const newColors = {
       primary: Object.keys(Colors.primary)[Math.floor(Math.random() * Object.keys(Colors.primary).length)],
       secondary: Object.keys(Colors.secondary)[Math.floor(Math.random() * Object.keys(Colors.secondary).length)],
       tertiary: Object.keys(Colors.tertiary)[Math.floor(Math.random() * Object.keys(Colors.tertiary).length)],
       eyeColor: Object.keys(Colors.eyeColor)[Math.floor(Math.random() * Object.keys(Colors.eyeColor).length)]
-    });
+    };
+    
+    setSelectedColors(newColors);
   };
 
+  // Load user preferences
+  useEffect(() => {
+    const loadUserPreferences = async () => {
+      if (!user || !userId) return;
+      
+      try {
+        setPreferencesLoading(true);
+        const prefs = await getUserPreferences(user, userId);
+        
+        if (prefs) {
+          setSelectedBody(prefs.selectedBody as BodyType);
+          setSelectedPattern(prefs.selectedPattern as PatternType);
+          setSelectedEye(prefs.selectedEye as EyeType);
+          setSelectedMouth(prefs.selectedMouth as MouthType);
+          setSelectedColors(prefs.selectedColors);
+        }
+      } catch (error) {
+        console.error('Error loading preferences:', error);
+      } finally {
+        setPreferencesLoading(false);
+      }
+    };
+
+    loadUserPreferences();
+  }, [user, userId]);
+
+  // Save preferences when they change
+  useEffect(() => {
+    if (!user || !userId) return;
+    
+    const timeoutId = setTimeout(() => {
+      savePreferences();
+    }, 1000);
+
+    return () => clearTimeout(timeoutId);
+  }, [selectedBody, selectedPattern, selectedEye, selectedMouth, selectedColors, user, userId]);
+
+  // Load SVG content
   useEffect(() => {
     loadSvgContent();
   }, [selectedBody, selectedPattern, selectedEye, selectedMouth, selectedColors]);
 
+  // Handle mouse movement
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!containerRef.current) return;
@@ -261,6 +320,14 @@ const CryptoKittyDesigner: React.FC = () => {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
         <p className="text-lg text-gray-600">Please log in to create your kitty</p>
+      </div>
+    );
+  }
+
+  if (preferencesLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <div className="loading-spinner" />
       </div>
     );
   }
