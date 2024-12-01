@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 
 // Enums
 enum BodyType {
@@ -51,6 +52,8 @@ interface KittyParts {
 }
 
 const CryptoKittyDesigner: React.FC = () => {
+  const { isAuthenticated } = useAuth();
+
   // Color definitions
   const Colors = {
     primary: {
@@ -112,70 +115,58 @@ const CryptoKittyDesigner: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [eyePosition, setEyePosition] = useState({ x: 0, y: 0 });
-  
+
   const replaceColors = (svgContent: string, svgType: 'body' | 'eyes' | 'mouth') => {
     let result = svgContent;
 
     result = result.replace(/<(path|circle|rect|ellipse)/g, '<$1 style="transition: fill 0.3s ease-in-out"');
 
-    
-    // Helper function to escape special characters in string for regex
     const escapeRegExp = (string: string) => {
       return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     };
-  
-    // Helper function to create color replacement for both hex and rgb formats
+
     const createColorReplacer = (originalColor: string, newColor: string) => {
-      // Handle hex colors (case insensitive)
       const hexRegex = new RegExp(`${escapeRegExp(originalColor)}`, 'gi');
       result = result.replace(hexRegex, newColor);
-  
-      // Handle RGB format
-      // Convert hex to RGB
+
       const hexToRgb = (hex: string) => {
         const r = parseInt(hex.slice(1, 3), 16);
         const g = parseInt(hex.slice(3, 5), 16);
         const b = parseInt(hex.slice(5, 7), 16);
         return [r, g, b];
       };
-  
+
       if (originalColor.startsWith('#')) {
         const [r, g, b] = hexToRgb(originalColor);
         const rgbRegex = new RegExp(`rgb\\(\\s*${r}\\s*,\\s*${g}\\s*,\\s*${b}\\s*\\)`, 'gi');
         result = result.replace(rgbRegex, newColor);
       }
     };
-  
-    // Apply color replacements based on the type of SVG
+
     if (svgType === 'body') {
-      // Replace primary colors
       const primaryColors = Object.values(Colors.primary);
       primaryColors.forEach(originalColor => {
         createColorReplacer(originalColor, Colors.primary[selectedColors.primary as keyof typeof Colors.primary]);
       });
-  
-      // Replace secondary colors
+
       const secondaryColors = Object.values(Colors.secondary);
       secondaryColors.forEach(originalColor => {
         createColorReplacer(originalColor, Colors.secondary[selectedColors.secondary as keyof typeof Colors.secondary]);
       });
-  
-      // Replace tertiary colors
+
       const tertiaryColors = Object.values(Colors.tertiary);
       tertiaryColors.forEach(originalColor => {
         createColorReplacer(originalColor, Colors.tertiary[selectedColors.tertiary as keyof typeof Colors.tertiary]);
       });
     } else if (svgType === 'eyes') {
-      // Replace eye colors
       const eyeColors = Object.values(Colors.eyeColor);
       eyeColors.forEach(originalColor => {
         createColorReplacer(originalColor, Colors.eyeColor[selectedColors.eyeColor as keyof typeof Colors.eyeColor]);
       });
     } else if (svgType === 'mouth') {
-      // For mouth, we'll use the primary color
       createColorReplacer(Colors.primary.shadowgrey, Colors.primary[selectedColors.primary as keyof typeof Colors.primary]);
     }
-  
+
     return result;
   };
 
@@ -200,22 +191,21 @@ const CryptoKittyDesigner: React.FC = () => {
         fetch(`/cattributes/eye/${selectedEye}.svg`),
         fetch(`/cattributes/mouth/${selectedMouth}.svg`)
       ]);
-  
+
       if (!bodyResponse.ok || !eyesResponse.ok || !mouthResponse.ok) {
         throw new Error('Failed to load SVG parts');
       }
-  
+
       let [bodySvg, eyesSvg, mouthSvg] = await Promise.all([
         bodyResponse.text(),
         eyesResponse.text(),
         mouthResponse.text()
       ]);
-  
-      // Apply colors with the new replacement function
+
       bodySvg = replaceColors(bodySvg, 'body');
       eyesSvg = replaceColors(eyesSvg, 'eyes');
       mouthSvg = replaceColors(mouthSvg, 'mouth');
-  
+
       setKittyParts({ body: bodySvg, eyes: eyesSvg, mouth: mouthSvg });
     } catch (error) {
       console.error('Error loading SVG:', error);
@@ -224,40 +214,6 @@ const CryptoKittyDesigner: React.FC = () => {
       setIsLoading(false);
     }
   };
-
-// Effect for loading SVG content
-useEffect(() => {
-    loadSvgContent();
-  }, [selectedBody, selectedPattern, selectedEye, selectedMouth, selectedColors]);
-  
-  // Separate effect for mouse movement
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!containerRef.current) return;
-  
-      const container = containerRef.current;
-      const rect = container.getBoundingClientRect();
-      
-      // Calculate the center of the container
-      const containerCenterX = rect.left + rect.width / 2;
-      const containerCenterY = rect.top + rect.height / 2;
-      
-      // Calculate the angle between cursor and center
-      const angle = Math.atan2(e.clientY - containerCenterY, e.clientX - containerCenterX);
-      
-      // Maximum movement radius (in pixels)
-      const maxRadius = 1;
-      
-      // Calculate new position
-      const x = Math.cos(angle) * maxRadius;
-      const y = Math.sin(angle) * maxRadius;
-      
-      setEyePosition({ x, y });
-    };
-  
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []); // Empty dependency array since we don't need to recreate this listener
 
   const generateRandomKitty = () => {
     setSelectedBody(Object.values(BodyType)[Math.floor(Math.random() * Object.values(BodyType).length)]);
@@ -272,6 +228,42 @@ useEffect(() => {
       eyeColor: Object.keys(Colors.eyeColor)[Math.floor(Math.random() * Object.keys(Colors.eyeColor).length)]
     });
   };
+
+  useEffect(() => {
+    loadSvgContent();
+  }, [selectedBody, selectedPattern, selectedEye, selectedMouth, selectedColors]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!containerRef.current) return;
+
+      const container = containerRef.current;
+      const rect = container.getBoundingClientRect();
+      
+      const containerCenterX = rect.left + rect.width / 2;
+      const containerCenterY = rect.top + rect.height / 2;
+      
+      const angle = Math.atan2(e.clientY - containerCenterY, e.clientX - containerCenterX);
+      
+      const maxRadius = 1;
+      
+      const x = Math.cos(angle) * maxRadius;
+      const y = Math.sin(angle) * maxRadius;
+      
+      setEyePosition({ x, y });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <p className="text-lg text-gray-600">Please log in to create your kitty</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto p-6">

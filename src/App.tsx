@@ -1,10 +1,15 @@
 import CryptoKittyDesigner from './components/CryptoKittyDesigner';
+import { AuthProvider } from './contexts/AuthContext';
+import AuthScreen from './components/AuthScreen';
 
 function App() {
   return (
-    <div className="App">
-      <CryptoKittyDesigner />
-    </div>
+    <AuthProvider>
+      <div className="App">
+        <AuthScreen />
+        <CryptoKittyDesigner />
+      </div>
+    </AuthProvider>
   );
 }
 
