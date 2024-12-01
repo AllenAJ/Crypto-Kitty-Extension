@@ -117,7 +117,87 @@ const CryptoKittyDesigner: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [eyePosition, setEyePosition] = useState({ x: 0, y: 0 });
+  const [targetPosition, setTargetPosition] = useState({ x: 0, y: 0 });
+  const animationFrameRef = useRef<number>();
+  const lastUpdateTimeRef = useRef<number>(0);
+  const velocityRef = useRef({ x: 0, y: 0 });
+  
+  // Eye movement constants
+const SPRING_STRENGTH = 0.2;  // Reduced from 0.3
+const DAMPING = 0.8;         // Increased from 0.75 for more stability
+const MAX_VELOCITY = 0.3;    // Reduced from 0.5
+const MAX_DISTANCE = 0.2;    // Reduced from 3
+const IDLE_MOVEMENT_RADIUS = 0.2; // Reduced from 0.3
+  const IDLE_MOVEMENT_SPEED = 0.001;
 
+    // Function to calculate distance between two points
+    const getDistance = (p1: { x: number; y: number }, p2: { x: number; y: number }) => {
+      return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+    };
+    
+    // Function to limit a value between min and max
+    const clamp = (value: number, min: number, max: number) => {
+      return Math.min(Math.max(value, min), max);
+    };
+    
+    // Function to simulate natural eye movement when idle
+    const getIdlePosition = (time: number) => {
+      const angle = time * IDLE_MOVEMENT_SPEED;
+      return {
+        x: Math.cos(angle) * IDLE_MOVEMENT_RADIUS,
+        y: Math.sin(angle * 1.5) * IDLE_MOVEMENT_RADIUS // Use different frequency for y to create more natural movement
+      };
+    };
+  
+    // Update animation loop
+    const updateEyePosition = (timestamp: number) => {
+      if (!lastUpdateTimeRef.current) {
+        lastUpdateTimeRef.current = timestamp;
+      }
+      
+      const deltaTime = timestamp - lastUpdateTimeRef.current;
+      lastUpdateTimeRef.current = timestamp;
+      
+      // Calculate spring force
+      const dx = targetPosition.x - eyePosition.x;
+      const dy = targetPosition.y - eyePosition.y;
+      
+      // Apply spring physics
+      velocityRef.current.x += dx * SPRING_STRENGTH;
+      velocityRef.current.y += dy * SPRING_STRENGTH;
+      
+      // Apply damping
+      velocityRef.current.x *= DAMPING;
+      velocityRef.current.y *= DAMPING;
+      
+      // Limit velocity
+      const currentVelocity = getDistance({ x: 0, y: 0 }, velocityRef.current);
+      if (currentVelocity > MAX_VELOCITY) {
+        const scale = MAX_VELOCITY / currentVelocity;
+        velocityRef.current.x *= scale;
+        velocityRef.current.y *= scale;
+      }
+      
+      // Update position
+      const newX = eyePosition.x + velocityRef.current.x;
+      const newY = eyePosition.y + velocityRef.current.y;
+      
+      // Limit maximum eye movement distance
+      const distanceFromCenter = getDistance({ x: 0, y: 0 }, { x: newX, y: newY });
+      if (distanceFromCenter > MAX_DISTANCE) {
+        const scale = MAX_DISTANCE / distanceFromCenter;
+        setEyePosition({
+          x: newX * scale,
+          y: newY * scale
+        });
+      } else {
+        setEyePosition({ x: newX, y: newY });
+      }
+      
+      animationFrameRef.current = requestAnimationFrame(updateEyePosition);
+    };
+
+    
   const replaceColors = (svgContent: string, svgType: 'body' | 'eyes' | 'mouth') => {
     let result = svgContent;
 
@@ -295,26 +375,93 @@ const CryptoKittyDesigner: React.FC = () => {
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!containerRef.current) return;
-
+      
       const container = containerRef.current;
       const rect = container.getBoundingClientRect();
       
+      // Calculate mouse position relative to container center
       const containerCenterX = rect.left + rect.width / 2;
       const containerCenterY = rect.top + rect.height / 2;
       
-      const angle = Math.atan2(e.clientY - containerCenterY, e.clientX - containerCenterX);
+      // Calculate normalized vector from center to mouse
+      const dx = e.clientX - containerCenterX;
+      const dy = e.clientY - containerCenterY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
       
-      const maxRadius = 1;
+      if (distance === 0) return; // Prevent division by zero
       
-      const x = Math.cos(angle) * maxRadius;
-      const y = Math.sin(angle) * maxRadius;
+      // Set target position with distance-based scaling
+      const scale = Math.min(distance / (rect.width / 2), 1);
+      const targetX = (dx / distance) * MAX_DISTANCE * scale;
+      const targetY = (dy / distance) * MAX_DISTANCE * scale;
       
-      setEyePosition({ x, y });
+      setTargetPosition({ 
+        x: clamp(targetX, -MAX_DISTANCE, MAX_DISTANCE),
+        y: clamp(targetY, -MAX_DISTANCE, MAX_DISTANCE)
+      });
     };
-
+  
+    const updateEyePosition = (timestamp: number) => {
+      if (!lastUpdateTimeRef.current) {
+        lastUpdateTimeRef.current = timestamp;
+      }
+      
+      const deltaTime = timestamp - lastUpdateTimeRef.current;
+      lastUpdateTimeRef.current = timestamp;
+      
+      // Calculate spring force
+      const dx = targetPosition.x - eyePosition.x;
+      const dy = targetPosition.y - eyePosition.y;
+      
+      // Apply spring physics
+      velocityRef.current.x += dx * SPRING_STRENGTH;
+      velocityRef.current.y += dy * SPRING_STRENGTH;
+      
+      // Apply damping
+      velocityRef.current.x *= DAMPING;
+      velocityRef.current.y *= DAMPING;
+      
+      // Limit velocity
+      const currentVelocity = getDistance({ x: 0, y: 0 }, velocityRef.current);
+      if (currentVelocity > MAX_VELOCITY) {
+        const scale = MAX_VELOCITY / currentVelocity;
+        velocityRef.current.x *= scale;
+        velocityRef.current.y *= scale;
+      }
+      
+      // Update position
+      const newX = eyePosition.x + velocityRef.current.x;
+      const newY = eyePosition.y + velocityRef.current.y;
+      
+      // Limit maximum eye movement distance
+      const distanceFromCenter = getDistance({ x: 0, y: 0 }, { x: newX, y: newY });
+      if (distanceFromCenter > MAX_DISTANCE) {
+        const scale = MAX_DISTANCE / distanceFromCenter;
+        setEyePosition({
+          x: newX * scale,
+          y: newY * scale
+        });
+      } else {
+        setEyePosition({ x: newX, y: newY });
+      }
+      
+      animationFrameRef.current = requestAnimationFrame(updateEyePosition);
+    };
+    
+    // Start animation loop
+    animationFrameRef.current = requestAnimationFrame(updateEyePosition);
+    
+    // Add event listeners
     window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [eyePosition, targetPosition]);
 
   if (!isAuthenticated) {
     return (
@@ -353,13 +500,14 @@ const CryptoKittyDesigner: React.FC = () => {
       <div dangerouslySetInnerHTML={{ __html: kittyParts.body }} className="absolute inset-0 z-10" />
       <div dangerouslySetInnerHTML={{ __html: kittyParts.mouth }} className="absolute inset-0 z-20" />
       <div 
-        dangerouslySetInnerHTML={{ __html: kittyParts.eyes }} 
-        className="absolute inset-0 z-30"
-        style={{
-          transform: `translate(${eyePosition.x}px, ${eyePosition.y}px)`,
-          transition: 'transform 0.1s ease-out'
-        }}
-      />
+  dangerouslySetInnerHTML={{ __html: kittyParts.eyes }} 
+  className="absolute inset-0 z-30"
+  style={{
+    transform: `translate(${eyePosition.x * 10}px, ${eyePosition.y * 10}px)`,
+    transition: 'transform 0.05s cubic-bezier(0.4, 0, 0.2, 1)'
+  }}
+/>
+
     </>
   )}
 </div>
