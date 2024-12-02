@@ -126,7 +126,7 @@ const CryptoKittyDesigner: React.FC = () => {
 const SPRING_STRENGTH = 0.2;  // Reduced from 0.3
 const DAMPING = 0.8;         // Increased from 0.75 for more stability
 const MAX_VELOCITY = 0.3;    // Reduced from 0.5
-const MAX_DISTANCE = 0.2;    // Reduced from 3
+const MAX_DISTANCE = 0.1;    // Reduced from 3
 const IDLE_MOVEMENT_RADIUS = 0.2; // Reduced from 0.3
   const IDLE_MOVEMENT_SPEED = 0.001;
 
