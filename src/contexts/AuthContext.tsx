@@ -22,6 +22,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Create or retrieve user document in Firebase
   const createOrGetUser = async (email: string) => {
     // Create a deterministic but unique ID from email
     const uid = btoa(email).replace(/[/+=]/g, '');
@@ -29,6 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     const userDoc = await getDoc(userRef);
     if (!userDoc.exists()) {
+      // Create new user document if it doesn't exist
       await setDoc(userRef, {
         email,
         createdAt: new Date().toISOString(),
@@ -39,15 +41,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return uid;
   };
 
+  // Check user's authentication status
   const checkUser = async () => {
     try {
+      // Check if we're in an auth callback URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const isAuth = urlParams.get('auth');
+
       const isLoggedIn = await magic.user.isLoggedIn();
+      
       if (isLoggedIn) {
         const { email } = await magic.user.getMetadata();
         if (email) {
           const uid = await createOrGetUser(email);
           setUser(email);
           setUserId(uid);
+
+          // If this was opened as auth tab, close it after successful login
+          if (isAuth) {
+            window.close();
+          }
         }
       }
     } catch (error) {
@@ -58,17 +71,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Check auth status on mount
   useEffect(() => {
     checkUser();
   }, []);
 
+  // Handle login
   const login = async (email: string) => {
     try {
       setLoading(true);
+      
       await magic.auth.loginWithEmailOTP({ email });
       const uid = await createOrGetUser(email);
       setUser(email);
       setUserId(uid);
+  
+      // Check if this is the auth tab
+      const urlParams = new URLSearchParams(window.location.search);
+      const isAuth = urlParams.get('auth');
+  
+      if (isAuth) {
+        // Close this tab and focus on the extension
+        chrome.runtime.sendMessage({ type: 'LOGIN_SUCCESS' });
+        window.close();
+      }
+  
     } catch (error) {
       console.error('Error logging in:', error);
       throw error;
@@ -77,12 +104,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Handle logout
   const logout = async () => {
     try {
       setLoading(true);
+      
+      // Logout from Magic
       await magic.user.logout();
+      
+      // Clear user state
       setUser(null);
       setUserId(null);
+
+      // Clear extension storage
+      await chrome.storage.local.remove(['authUser', 'userId']);
+      
     } catch (error) {
       console.error('Error logging out:', error);
       throw error;
@@ -91,6 +127,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Initialize auth state from extension storage
+  useEffect(() => {
+    const initializeFromStorage = async () => {
+      try {
+        const { authUser, userId: storedUserId } = await chrome.storage.local.get([
+          'authUser',
+          'userId'
+        ]);
+
+        if (authUser) {
+          setUser(authUser);
+          setUserId(storedUserId);
+        }
+      } catch (error) {
+        console.error('Error initializing from storage:', error);
+      }
+    };
+
+    initializeFromStorage();
+  }, []);
+
+  // Context value
   const value = {
     user,
     loading,
@@ -103,6 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
+// Custom hook to use auth context
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {

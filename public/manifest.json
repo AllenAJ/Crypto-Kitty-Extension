@@ -1,25 +1,29 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
-  "icons": [
-    {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+  "manifest_version": 3,
+  "name": "CryptoKitty Designer",
+  "version": "1.0.0",
+  "description": "Design your own CryptoKitties",
+  "action": {
+    "default_popup": "index.html",
+    "default_icon": {
+      "128": "icon.png"
     },
-    {
-      "src": "logo192.png",
-      "type": "image/png",
-      "sizes": "192x192"
-    },
-    {
-      "src": "logo512.png",
-      "type": "image/png",
-      "sizes": "512x512"
-    }
+    "default_width": 800,
+    "default_height": 600
+  },
+  "icons": {
+    "128": "icon.png"
+  },
+  "permissions": [
+    "storage",
+    "tabs"
   ],
-  "start_url": ".",
-  "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+    "web_accessible_resources": [{
+    "resources": ["cattributes/*"],
+    "matches": ["<all_urls>"]
+  }]
 }

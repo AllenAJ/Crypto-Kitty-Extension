@@ -75,3 +75,32 @@
 .kitty-svg-container svg circle[class*="iris"] {
   transition: transform 0.1s ease-out;
 }
+
+.alert {
+  transition: all 0.3s ease-in-out;
+}
+
+.button-hover-effect {
+  transition: all 0.2s ease-in-out;
+}
+
+.fade-enter {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.fade-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms, transform 300ms;
+}
+
+.fade-exit {
+  opacity: 1;
+}
+
+.fade-exit-active {
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 300ms, transform 300ms;
+}

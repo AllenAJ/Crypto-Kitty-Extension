@@ -269,9 +269,9 @@ const IDLE_MOVEMENT_RADIUS = 0.2; // Reduced from 0.3
       setError(null);
       
       const [bodyResponse, eyesResponse, mouthResponse] = await Promise.all([
-        fetch(`/cattributes/body/${selectedBody}-${selectedPattern}.svg`),
-        fetch(`/cattributes/eye/${selectedEye}.svg`),
-        fetch(`/cattributes/mouth/${selectedMouth}.svg`)
+        fetch(chrome.runtime.getURL(`cattributes/body/${selectedBody}-${selectedPattern}.svg`)),
+        fetch(chrome.runtime.getURL(`cattributes/eye/${selectedEye}.svg`)),
+        fetch(chrome.runtime.getURL(`cattributes/mouth/${selectedMouth}.svg`))
       ]);
 
       if (!bodyResponse.ok || !eyesResponse.ok || !mouthResponse.ok) {
@@ -466,7 +466,7 @@ const IDLE_MOVEMENT_RADIUS = 0.2; // Reduced from 0.3
   if (!isAuthenticated) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <p className="text-lg text-gray-600">Please log in to create your kitty</p>
+        {/* <p className="text-lg text-gray-600">Please log in to create your kitty</p> */}
       </div>
     );
   }

@@ -1,29 +1,54 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Loader2, LogOut, Mail, ArrowRight } from 'lucide-react';
-import { Alert, AlertTitle, AlertDescription } from './Alert'; // Updated import path
+import { Loader2, LogOut, Mail, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Alert, AlertTitle, AlertDescription } from './Alert';
 
 const AuthScreen = () => {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isFullPage, setIsFullPage] = useState(false);
   const { login, logout, user, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    // Check if we're in the full page view (tab) or popup
+    setIsFullPage(window.innerWidth > 400);
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
     setShowSuccess(false);
-
+  
     try {
       await login(email);
       setShowSuccess(true);
+      
+      // If in auth tab, add a smooth transition before closing
+      if (window.location.search.includes('auth=true')) {
+        // Show success message for 1.5 seconds before closing
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        window.close();
+      }
     } catch (err) {
       setError('Failed to log in. Please check your email and try again.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleOpenAuth = () => {
+    setIsLoading(true); // Show loading state in popup
+    
+    chrome.tabs.create({ 
+      url: chrome.runtime.getURL('index.html?auth=true'),
+      active: true // Ensure the new tab becomes active
+    }, () => {
+      // Optional: close the popup after tab is opened
+      window.close();
+    });
   };
 
   const handleLogout = async () => {
@@ -77,6 +102,32 @@ const AuthScreen = () => {
     );
   }
 
+  // Show simplified view in popup
+// In AuthScreen.tsx, update the non-full-page return statement
+if (!isFullPage) {
+  return (
+    <div className="w-[400px] min-h-[600px] p-6 flex items-center justify-center">
+      <button
+        onClick={handleOpenAuth}
+        disabled={isLoading}
+        className="w-full flex items-center justify-center gap-2 bg-purple-600 
+          text-white hover:bg-purple-700 py-3 px-4 rounded-xl font-medium 
+          transition-all duration-300 transform hover:scale-102 
+          active:scale-98 disabled:opacity-50"
+      >
+        {isLoading ? (
+          <Loader2 className="h-5 w-5 animate-spin" />
+        ) : (
+          <>
+            <Mail className="h-5 w-5" />
+            Login with Email
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
+
   return (
     <div className="w-full max-w-md mx-auto p-6">
       <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
@@ -92,12 +143,20 @@ const AuthScreen = () => {
           </Alert>
         )}
 
-        {showSuccess && (
-          <Alert className="mb-6 bg-green-50 text-green-800 border-green-200">
-            <AlertTitle>Check your email</AlertTitle>
-            <AlertDescription>We've sent you a magic link to sign in</AlertDescription>
-          </Alert>
-        )}
+{showSuccess && (
+  <Alert 
+    className="mb-6 bg-green-50 text-green-800 border-green-200 
+      animate-in fade-in slide-in-from-top-4 duration-300"
+  >
+    <AlertTitle className="flex items-center gap-2">
+      <CheckCircle2 className="h-5 w-5" />
+      Success!
+    </AlertTitle>
+    <AlertDescription>
+      You've been logged in successfully. This window will close automatically...
+    </AlertDescription>
+  </Alert>
+)}
 
         <form onSubmit={handleLogin} className="space-y-6">
           <div className="space-y-2">
@@ -118,7 +177,6 @@ const AuthScreen = () => {
               <Mail className="absolute right-3 top-3.5 h-5 w-5 text-gray-400" />
             </div>
           </div>
-
           <button
             type="submit"
             disabled={isLoading}
