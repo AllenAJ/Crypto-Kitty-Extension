@@ -1,3 +1,4 @@
+// background.js
 let loginTabId = null;
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -11,14 +12,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
   
   if (request.type === 'LOGIN_SUCCESS') {
-    // Smoothly close the auth tab
-    if (loginTabId) {
-      chrome.tabs.remove(loginTabId, () => {
-        // Focus the extension popup after a short delay
-        setTimeout(() => {
-          chrome.action.openPopup();
-        }, 300);
-      });
-    }
+    // The tab will close itself after showing success message
+    // Focus the extension popup
+    chrome.action.openPopup();
   }
 });

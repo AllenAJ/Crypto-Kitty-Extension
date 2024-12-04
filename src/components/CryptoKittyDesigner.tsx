@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { saveUserPreferences, getUserPreferences } from '../services/userPreferences';
+import { Mail, LogOut, ArrowLeft } from 'lucide-react';
 
 // Enums
 enum BodyType {
@@ -52,7 +53,11 @@ interface KittyParts {
   mouth: string;
 }
 
-const CryptoKittyDesigner: React.FC = () => {
+interface CryptoKittyDesignerProps {
+  onBack: () => void;
+}
+
+const CryptoKittyDesigner: React.FC<CryptoKittyDesignerProps> = ({ onBack }) => {
   const { isAuthenticated, user, userId } = useAuth();
   const [preferencesLoading, setPreferencesLoading] = useState(false);
 
@@ -149,6 +154,16 @@ const IDLE_MOVEMENT_RADIUS = 0.2; // Reduced from 0.3
       };
     };
   
+    const handleLogout = async () => {
+      // Get logout function from auth context
+      const { logout } = useAuth();
+      try {
+        await logout();
+      } catch (error) {
+        console.error('Error logging out:', error);
+      }
+    };
+
     // Update animation loop
     const updateEyePosition = (timestamp: number) => {
       if (!lastUpdateTimeRef.current) {
@@ -463,201 +478,193 @@ const IDLE_MOVEMENT_RADIUS = 0.2; // Reduced from 0.3
     };
   }, [eyePosition, targetPosition]);
 
-  if (!isAuthenticated) {
-    return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        {/* <p className="text-lg text-gray-600">Please log in to create your kitty</p> */}
-      </div>
-    );
-  }
-
-  if (preferencesLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <div className="loading-spinner" />
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <div className="bg-white shadow-lg rounded-xl">
-        <div className="p-6">
-          <h1 className="text-3xl font-bold mb-2">CryptoKitty Designer</h1>
-          <p className="text-gray-600 mb-8">Design your dream kitty!</p>
-
-          {/* Kitty Display */}
-          <div className="bg-gray-50 rounded-xl p-8 mb-8 flex justify-center items-center min-h-[400px] relative">
-        {isLoading && (
-          <div className="loading-spinner absolute" />
-        )}
-        {error && (
-          <div className="text-red-500 absolute">{error}</div>
-        )}
-<div className="kitty-svg-container relative w-96 h-96" ref={containerRef}>
-  {!isLoading && !error && (
-    <>
-      <div dangerouslySetInnerHTML={{ __html: kittyParts.body }} className="absolute inset-0 z-10" />
-      <div dangerouslySetInnerHTML={{ __html: kittyParts.mouth }} className="absolute inset-0 z-20" />
-      <div 
-  dangerouslySetInnerHTML={{ __html: kittyParts.eyes }} 
-  className="absolute inset-0 z-30"
-  style={{
-    transform: `translate(${eyePosition.x * 10}px, ${eyePosition.y * 10}px)`,
-    transition: 'transform 0.05s cubic-bezier(0.4, 0, 0.2, 1)'
-  }}
-/>
-
-    </>
-  )}
-</div>
+    <div className="flex flex-col h-full bg-gray-50">
+      <div className="w-full px-4 py-3 bg-white border-b flex items-center">
+        <button
+          onClick={onBack}
+          className="text-gray-500 hover:text-gray-700 flex items-center gap-2"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          <span>Back to Menu</span>
+        </button>
       </div>
 
-          {/* Controls */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Left Column */}
-            <div>
-              {/* Body Type */}
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold mb-3">Body Type</h2>
-                <div className="flex flex-wrap gap-2">
-                  {Object.values(BodyType).map(bodyType => (
-                    <button
-                      key={bodyType}
-                      onClick={() => setSelectedBody(bodyType)}
-                      className={`px-4 py-2 rounded-lg transition-all ${
-                        selectedBody === bodyType
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                      }`}
-                    >
-                      {bodyType}
-                    </button>
-                  ))}
-                </div>
+      <div className="flex flex-col h-full overflow-hidden">
+        <div className="w-full bg-white border-b p-4">
+          <div className="kitty-svg-container mx-auto relative" style={{ width: '200px', height: '200px' }}>
+            {isLoading ? (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="loading-spinner" />
               </div>
-
-              {/* Pattern */}
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold mb-3">Pattern</h2>
-                <div className="flex flex-wrap gap-2">
-                  {Object.values(PatternType).map(pattern => (
-                    <button
-                      key={pattern}
-                      onClick={() => setSelectedPattern(pattern)}
-                      className={`px-4 py-2 rounded-lg transition-all ${
-                        selectedPattern === pattern
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                      }`}
-                    >
-                      {pattern}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Primary Colors */}
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold mb-3">Primary Color</h2>
-                <div className="flex flex-wrap gap-3">
-          {Object.entries(Colors.primary).map(([colorName, colorValue]) => (
-            <button
-              key={colorName}
-              onClick={() => handleColorChange('primary', colorName)}
-              className={getColorButtonClass('primary', colorName)}
-              style={{ backgroundColor: colorValue }}
-              title={colorName}
-            />
-          ))}
+            ) : error ? (
+              <div className="text-red-500 text-center">{error}</div>
+            ) : (
+              <>
+                <div dangerouslySetInnerHTML={{ __html: kittyParts.body }} className="absolute inset-0 z-10" />
+                <div dangerouslySetInnerHTML={{ __html: kittyParts.mouth }} className="absolute inset-0 z-20" />
+                <div
+                  dangerouslySetInnerHTML={{ __html: kittyParts.eyes }}
+                  className="absolute inset-0 z-30"
+                  style={{
+                    transform: `translate(${eyePosition.x * 10}px, ${eyePosition.y * 10}px)`,
+                    transition: 'transform 0.05s cubic-bezier(0.4, 0, 0.2, 1)'
+                  }}
+                />
+              </>
+            )}
+          </div>
         </div>
-              </div>
 
-              {/* Secondary Colors */}
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold mb-3">Secondary Color</h2>
-                <div className="flex flex-wrap gap-3">
-                {Object.entries(Colors.secondary).map(([colorName, colorValue]) => (
-  <button
-    key={colorName}
-    onClick={() => handleColorChange('secondary', colorName)}
-    className={getColorButtonClass('secondary', colorName)}
-    style={{ backgroundColor: colorValue }}
-    title={colorName}
-  />
-))}
-                </div>
+        {/* Scrollable Controls Section */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-4 space-y-6" ref={containerRef}>
+            {/* Body Type */}
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Body Type</h3>
+              <div className="flex flex-wrap gap-2">
+                {Object.values(BodyType).map(bodyType => (
+                  <button
+                    key={bodyType}
+                    onClick={() => setSelectedBody(bodyType)}
+                    className={`px-3 py-1.5 text-xs rounded-lg transition-all ${
+                      selectedBody === bodyType
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {bodyType}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Right Column */}
+            {/* Pattern */}
             <div>
-              {/* Eyes */}
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold mb-3">Eyes</h2>
-                <div className="flex flex-wrap gap-2">
-                  {Object.values(EyeType).map(eyeType => (
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Pattern</h3>
+              <div className="flex flex-wrap gap-2">
+                {Object.values(PatternType).map(pattern => (
+                  <button
+                    key={pattern}
+                    onClick={() => setSelectedPattern(pattern)}
+                    className={`px-3 py-1.5 text-xs rounded-lg transition-all ${
+                      selectedPattern === pattern
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {pattern}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Eyes - Restored */}
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Eyes</h3>
+              <div className="flex flex-wrap gap-2">
+                {Object.values(EyeType).map(eyeType => (
+                  <button
+                    key={eyeType}
+                    onClick={() => setSelectedEye(eyeType)}
+                    className={`px-3 py-1.5 text-xs rounded-lg transition-all ${
+                      selectedEye === eyeType
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {eyeType}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Mouth - Restored */}
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Mouth</h3>
+              <div className="flex flex-wrap gap-2">
+                {Object.values(MouthType).map(mouthType => (
+                  <button
+                    key={mouthType}
+                    onClick={() => setSelectedMouth(mouthType)}
+                    className={`px-3 py-1.5 text-xs rounded-lg transition-all ${
+                      selectedMouth === mouthType
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {mouthType}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Color Sections */}
+            <div className="space-y-4">
+              {/* Primary Colors */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Primary Color</h3>
+                <div className="grid grid-cols-5 gap-2">
+                  {Object.entries(Colors.primary).map(([colorName, colorValue]) => (
                     <button
-                      key={eyeType}
-                      onClick={() => setSelectedEye(eyeType)}
-                      className={`px-4 py-2 rounded-lg transition-all ${
-                        selectedEye === eyeType
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      key={colorName}
+                      onClick={() => handleColorChange('primary', colorName)}
+                      className={`w-8 h-8 rounded-full transition-transform hover:scale-110 ${
+                        selectedColors.primary === colorName ? 'ring-2 ring-purple-500 ring-offset-2' : ''
                       }`}
-                    >
-                      {eyeType}
-                    </button>
+                      style={{ backgroundColor: colorValue }}
+                      title={colorName}
+                    />
                   ))}
                 </div>
               </div>
 
-              {/* Mouth */}
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold mb-3">Mouth</h2>
-                <div className="flex flex-wrap gap-2">
-                  {Object.values(MouthType).map(mouthType => (
+              {/* Secondary Colors */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Secondary Color</h3>
+                <div className="grid grid-cols-5 gap-2">
+                  {Object.entries(Colors.secondary).map(([colorName, colorValue]) => (
                     <button
-                      key={mouthType}
-                      onClick={() => setSelectedMouth(mouthType)}
-                      className={`px-4 py-2 rounded-lg transition-all ${
-                        selectedMouth === mouthType
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      key={colorName}
+                      onClick={() => handleColorChange('secondary', colorName)}
+                      className={`w-8 h-8 rounded-full transition-transform hover:scale-110 ${
+                        selectedColors.secondary === colorName ? 'ring-2 ring-purple-500 ring-offset-2' : ''
                       }`}
-                    >
-                      {mouthType}
-                    </button>
+                      style={{ backgroundColor: colorValue }}
+                      title={colorName}
+                    />
                   ))}
                 </div>
               </div>
 
- {/* Tertiary Colors */}
- <div className="mb-6">
-                <h2 className="text-xl font-semibold mb-3">Tertiary Color</h2>
-                <div className="flex flex-wrap gap-3">
-                {Object.entries(Colors.tertiary).map(([colorName, colorValue]) => (
-  <button
-    key={colorName}
-    onClick={() => handleColorChange('tertiary', colorName)}
-    className={getColorButtonClass('tertiary', colorName)}
-    style={{ backgroundColor: colorValue }}
-    title={colorName}
-  />
-))}
+              {/* Tertiary Colors */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Tertiary Color</h3>
+                <div className="grid grid-cols-5 gap-2">
+                  {Object.entries(Colors.tertiary).map(([colorName, colorValue]) => (
+                    <button
+                      key={colorName}
+                      onClick={() => handleColorChange('tertiary', colorName)}
+                      className={`w-8 h-8 rounded-full transition-transform hover:scale-110 ${
+                        selectedColors.tertiary === colorName ? 'ring-2 ring-purple-500 ring-offset-2' : ''
+                      }`}
+                      style={{ backgroundColor: colorValue }}
+                      title={colorName}
+                    />
+                  ))}
                 </div>
               </div>
 
               {/* Eye Colors */}
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold mb-3">Eye Color</h2>
-                <div className="flex flex-wrap gap-3">
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Eye Color</h3>
+                <div className="grid grid-cols-5 gap-2">
                   {Object.entries(Colors.eyeColor).map(([colorName, colorValue]) => (
                     <button
                       key={colorName}
-                      onClick={() => setSelectedColors(prev => ({ ...prev, eyeColor: colorName }))}
-                      className={`w-10 h-10 rounded-full transition-transform hover:scale-110 ${
-                        selectedColors.eyeColor === colorName ? 'ring-4 ring-blue-500 ring-offset-2' : ''
+                      onClick={() => handleColorChange('eyeColor', colorName)}
+                      className={`w-8 h-8 rounded-full transition-transform hover:scale-110 ${
+                        selectedColors.eyeColor === colorName ? 'ring-2 ring-purple-500 ring-offset-2' : ''
                       }`}
                       style={{ backgroundColor: colorValue }}
                       title={colorName}
@@ -667,21 +674,23 @@ const IDLE_MOVEMENT_RADIUS = 0.2; // Reduced from 0.3
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Random Button */}
-          <div className="flex justify-center mt-8">
-            <button 
-              onClick={generateRandomKitty}
-              className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-8 py-3 rounded-xl 
-                font-semibold shadow-lg hover:shadow-xl transition-all hover:-translate-y-1"
-            >
-              Random Kitty
-            </button>
-          </div>
+        {/* Random Button - Fixed at bottom */}
+        <div className="p-4 bg-white border-t">
+          <button 
+            onClick={generateRandomKitty}
+            className="w-full bg-gradient-to-r from-purple-500 to-purple-600 
+              text-white px-4 py-2 rounded-lg text-sm font-medium 
+              hover:from-purple-600 hover:to-purple-700
+              transition-all duration-200 hover:shadow-lg"
+          >
+            Random Kitty
+          </button>
         </div>
       </div>
     </div>
   );
-};
+}
 
 export default CryptoKittyDesigner;

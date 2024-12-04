@@ -41,13 +41,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return uid;
   };
 
-  // Check user's authentication status
+  useEffect(() => {
+    const quickAuth = async () => {
+      try {
+        const { cachedUser, cachedUserId } = await chrome.storage.local.get([
+          'cachedUser',
+          'cachedUserId'
+        ]);
+
+        if (cachedUser && cachedUserId) {
+          setUser(cachedUser);
+          setUserId(cachedUserId);
+          setLoading(false);
+          
+          // Verify with Magic in background
+          checkUser();
+        } else {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Error checking cached auth:', error);
+        setLoading(false);
+      }
+    };
+
+    quickAuth();
+  }, []);
+
   const checkUser = async () => {
     try {
-      // Check if we're in an auth callback URL
-      const urlParams = new URLSearchParams(window.location.search);
-      const isAuth = urlParams.get('auth');
-
       const isLoggedIn = await magic.user.isLoggedIn();
       
       if (isLoggedIn) {
@@ -56,18 +78,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const uid = await createOrGetUser(email);
           setUser(email);
           setUserId(uid);
-
-          // If this was opened as auth tab, close it after successful login
-          if (isAuth) {
-            window.close();
-          }
+          
+          // Cache the auth state
+          await chrome.storage.local.set({
+            cachedUser: email,
+            cachedUserId: uid
+          });
         }
+      } else {
+        // Clear cache if not logged in
+        await chrome.storage.local.remove(['cachedUser', 'cachedUserId']);
+        setUser(null);
+        setUserId(null);
       }
     } catch (error) {
       console.error('Error checking user:', error);
       await logout();
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -76,26 +102,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkUser();
   }, []);
 
-  // Handle login
   const login = async (email: string) => {
     try {
       setLoading(true);
       
       await magic.auth.loginWithEmailOTP({ email });
       const uid = await createOrGetUser(email);
+      
+      // Cache immediately after successful login
+      await chrome.storage.local.set({
+        cachedUser: email,
+        cachedUserId: uid
+      });
+      
       setUser(email);
       setUserId(uid);
-  
-      // Check if this is the auth tab
-      const urlParams = new URLSearchParams(window.location.search);
-      const isAuth = urlParams.get('auth');
-  
-      if (isAuth) {
-        // Close this tab and focus on the extension
-        chrome.runtime.sendMessage({ type: 'LOGIN_SUCCESS' });
-        window.close();
-      }
-  
+
+      // ... rest of login logic
     } catch (error) {
       console.error('Error logging in:', error);
       throw error;
@@ -104,28 +127,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Handle logout
-  const logout = async () => {
-    try {
-      setLoading(true);
-      
-      // Logout from Magic
-      await magic.user.logout();
-      
-      // Clear user state
-      setUser(null);
-      setUserId(null);
-
-      // Clear extension storage
-      await chrome.storage.local.remove(['authUser', 'userId']);
-      
-    } catch (error) {
-      console.error('Error logging out:', error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
+// AuthContext.tsx - Update the logout function
+const logout = async () => {
+  try {
+    setLoading(true);
+    // Immediately clear state
+    setUser(null);
+    setUserId(null);
+    
+    // Clear local storage immediately
+    await chrome.storage.local.remove(['cachedUser', 'cachedUserId']);
+    
+    // Then handle Magic logout in the background
+    await magic.user.logout();
+  } catch (error) {
+    console.error('Error during logout:', error);
+    // Even if Magic logout fails, we've already cleared local state
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Initialize auth state from extension storage
   useEffect(() => {
