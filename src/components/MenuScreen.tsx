@@ -1,9 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Palette, LogOut } from 'lucide-react';
+import { Palette, LogOut, Play } from 'lucide-react';
 import { getUserPreferences } from '../services/userPreferences';
 
-const MenuScreen = ({ onCustomize }: { onCustomize: () => void }) => {
+interface MenuScreenProps {
+  onCustomize: () => void;
+  onActivate: (kittyData: any) => Promise<void>;
+  onDeactivate: () => Promise<void>;
+  isKittyActive: boolean;
+}
+
+const MenuScreen: React.FC<MenuScreenProps> = ({ 
+  onCustomize, 
+  onActivate, 
+  onDeactivate, 
+  isKittyActive 
+}) => {
   const { user, userId, logout } = useAuth();
   const [kittyParts, setKittyParts] = useState({ body: '', eyes: '', mouth: '' });
   const [loading, setLoading] = useState(true);
@@ -82,6 +94,22 @@ const MenuScreen = ({ onCustomize }: { onCustomize: () => void }) => {
     loadKittyPreview();
   }, [user, userId]);
 
+  const handleActivate = () => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0].id) {
+        chrome.tabs.sendMessage(tabs[0].id, { 
+          type: 'SHOW_KITTY', 
+          kittyData: {
+            body: kittyParts.body,
+            eyes: kittyParts.eyes,
+            mouth: kittyParts.mouth
+          }
+        });
+        window.close();
+      }
+    });
+  };
+
   return (
     <div className="flex flex-col h-full bg-gray-50">
       <div className="w-full px-4 py-3 bg-white border-b flex items-center justify-between">
@@ -112,6 +140,15 @@ const MenuScreen = ({ onCustomize }: { onCustomize: () => void }) => {
         </div>
 
         <div className="w-full max-w-xs">
+
+        <button
+    onClick={handleActivate}
+    className="w-full flex items-center justify-center gap-2 bg-purple-600 text-white py-3 px-4 rounded-xl hover:bg-purple-700 transition-colors"
+  >
+    <Play className="w-5 h-5" />
+    <span>Activate Kitty</span>
+    </button>
+  
           <button
             onClick={onCustomize}
             className="w-full flex items-center justify-center gap-2 bg-purple-600 text-white py-3 px-4 rounded-xl hover:bg-purple-700 transition-colors"

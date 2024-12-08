@@ -8,7 +8,8 @@ module.exports = {
  mode: 'production',
  entry: {
    popup: path.resolve(__dirname, 'src/index.tsx'),
-   background: path.resolve(__dirname, 'src/background.js')  
+   background: path.resolve(__dirname, 'src/background.js'),
+   contentScript: path.resolve(__dirname, 'src/contentScript.ts') 
  },
  output: {
    path: path.resolve(__dirname, 'build'),
