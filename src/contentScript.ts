@@ -1,6 +1,11 @@
 // contentScript.ts
 export {};
 
+interface ScoreData {
+  score: number;
+  achievements: string[];
+}
+
 interface Position {
  x: number;
  y: number;
@@ -15,17 +20,96 @@ interface KittyData {
 class LaserCat {
  private kittyContainer: HTMLDivElement | null = null;
  private eyePosition = { x: 0, y: 0 };
+ private score: number = 0;
+ private achievements: string[] = [];
+ private scoreDisplay: HTMLElement | null = null;
  
  constructor(container: HTMLDivElement) {
-   this.kittyContainer = container;
-   this.setupListeners();
-   this.addStyles();
+  this.kittyContainer = container;
+  this.setupListeners();
+  this.addStyles();
+  this.initializeScore();
+  this.createScoreDisplay();
  }
 
  private setupListeners() {
    document.addEventListener('click', this.handleClick.bind(this));
    document.addEventListener('mousemove', this.handleMouseMove.bind(this));
  }
+
+ private async initializeScore() {
+  try {
+    const data = await chrome.storage.local.get('laserCatScore');
+    if (data.laserCatScore) {
+      this.score = data.laserCatScore.score;
+      this.achievements = data.laserCatScore.achievements;
+      this.updateScoreDisplay();
+    }
+  } catch (err) {
+    console.error('Error loading score:', err);
+  }
+}
+
+private async saveScore() {
+  try {
+    await chrome.storage.local.set({
+      laserCatScore: {
+        score: this.score,
+        achievements: this.achievements
+      }
+    });
+  } catch (err) {
+    console.error('Error saving score:', err);
+  }
+}
+
+private checkAchievements(): string | null {
+  const Achievements = {
+    BEGINNER: { threshold: 10, title: "Laser Newbie" },
+    INTERMEDIATE: { threshold: 50, title: "Zap Master" },
+    EXPERT: { threshold: 100, title: "Destruction King" }
+  };
+
+  for (const [id, data] of Object.entries(Achievements)) {
+    if (this.score >= data.threshold && !this.achievements.includes(id)) {
+      this.achievements.push(id);
+      this.saveScore();
+      return data.title;
+    }
+  }
+  return null;
+}
+private createScoreDisplay() {
+  this.scoreDisplay = document.createElement('div');
+  this.scoreDisplay.className = 'laser-cat-score';
+  this.scoreDisplay.setAttribute('data-score', this.score.toString());
+  document.body.appendChild(this.scoreDisplay);
+}
+
+private updateScoreDisplay() {
+  if (this.scoreDisplay) {
+    this.scoreDisplay.setAttribute('data-score', this.score.toString());
+  }
+}
+
+private showAchievementNotification(achievement: string) {
+  const notification = document.createElement('div');
+  notification.className = 'achievement-notification';
+  notification.innerHTML = `
+    <div class="achievement-content">
+      <svg class="trophy-icon" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M12 8l-4-4h8l-4 4zm-6 6h12v-4H6v4zm14-8h-4l4 4v-4zm-4 12h4v-4l-4 4zm-10 0l4-4H6v4z"/>
+      </svg>
+      <div class="achievement-text">
+        <div class="achievement-title">Achievement Unlocked!</div>
+        <div class="achievement-name">${achievement}</div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(notification);
+  setTimeout(() => notification.remove(), 3000);
+}
+
 
  private handleClick(e: MouseEvent) {
   const target = e.target as HTMLElement;
@@ -168,11 +252,20 @@ class LaserCat {
  }
 
  private removeTarget(target: HTMLElement) {
-   target.style.transition = 'all 0.3s ease-out';
-   target.style.transform = 'scale(0.8)';
-   target.style.opacity = '0';
-   setTimeout(() => target.remove(), 300);
- }
+  target.style.transition = 'all 0.3s ease-out';
+  target.style.transform = 'scale(0.8)';
+  target.style.opacity = '0';
+  setTimeout(() => {
+    target.remove();
+    this.score++;
+    this.updateScoreDisplay();
+    const newAchievement = this.checkAchievements();
+    if (newAchievement) {
+      this.showAchievementNotification(newAchievement);
+    }
+    this.saveScore();
+  }, 300);
+}
 
  private isDestructible(element: HTMLElement): boolean {
    const nonDestructibleTags = ['HTML', 'BODY', 'HEAD', 'SCRIPT', 'STYLE', 'LINK', 'META'];
@@ -199,6 +292,64 @@ class LaserCat {
     svg circle, svg path, svg ellipse {
       transition: fill 0.1s ease, stroke 0.1s ease;
     }
+    .laser-cat-score {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        font-family: Arial, sans-serif;
+        font-weight: bold;
+        z-index: 99999;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      
+      .laser-cat-score::before {
+        content: 'Score: ' attr(data-score);
+        color: #6b46c1;
+      }
+      
+      .achievement-notification {
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        background: white;
+        padding: 16px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        z-index: 99999;
+        animation: slideIn 0.3s ease-out;
+      }
+      
+      .achievement-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      
+      .trophy-icon {
+        width: 24px;
+        height: 24px;
+        color: #eab308;
+      }
+      
+      .achievement-title {
+        font-weight: bold;
+        color: #4b5563;
+      }
+      
+      .achievement-name {
+        color: #6b7280;
+      }
+      
+      @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
   `;
   document.head.appendChild(style);
 }

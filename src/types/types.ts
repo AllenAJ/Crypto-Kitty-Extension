@@ -10,4 +10,5 @@ export type PrimaryColorType = {
   cottoncandy: string;
 };
 
+
 export type ColorKeyType = keyof PrimaryColorType;

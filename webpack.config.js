@@ -40,7 +40,11 @@ module.exports = {
      {
        test: /\.(png|jpg|jpeg|gif)$/i,
        type: 'asset/resource'
-     }
+     },
+     {
+      test: /\.(png|jpg|jpeg|gif|webp)$/i,
+      type: 'asset/resource'
+    }
    ]
  },
  plugins: [

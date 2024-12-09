@@ -1109,6 +1109,14 @@ const AuthScreen = () => {
 export default AuthScreen;
 ```
 
+# src/components/bg.webp
+
+This is a binary file of the type: Image
+
+# src/components/bg1.webp
+
+This is a binary file of the type: Image
+
 # src/components/CryptoKittyDesigner.tsx
 
 ```tsx
@@ -1815,8 +1823,9 @@ export default CryptoKittyDesigner;
 ```tsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Palette, LogOut, Play } from 'lucide-react';
+import { Palette, LogOut, Play, Trophy } from 'lucide-react';
 import { getUserPreferences } from '../services/userPreferences';
+import bgImage from './bg.webp';
 
 interface MenuScreenProps {
   onCustomize: () => void;
@@ -1834,6 +1843,8 @@ const MenuScreen: React.FC<MenuScreenProps> = ({
   const { user, userId, logout } = useAuth();
   const [kittyParts, setKittyParts] = useState({ body: '', eyes: '', mouth: '' });
   const [loading, setLoading] = useState(true);
+  const [score, setScore] = useState(0);
+  const [achievement, setAchievement] = useState<string | null>(null);
 
   const replaceColors = (svgContent: string, colors: {
     primary: Record<string, string>;
@@ -1873,6 +1884,37 @@ const MenuScreen: React.FC<MenuScreenProps> = ({
     
     return result;
   };
+
+  useEffect(() => {
+    // Load score from chrome storage
+    const loadScore = async () => {
+      try {
+        const data = await chrome.storage.local.get('laserCatScore');
+        if (data.laserCatScore) {
+          const currentScore = data.laserCatScore.score;
+          setScore(currentScore);
+          
+          // Get highest achievement
+          const achievementLevels = {
+            EXPERT: { threshold: 100, title: "Destruction King" },
+            INTERMEDIATE: { threshold: 50, title: "Zap Master" },
+            BEGINNER: { threshold: 10, title: "Laser Newbie" }
+          };
+          
+          for (const [level, achievement] of Object.entries(achievementLevels)) {
+            if (currentScore >= achievement.threshold) {
+              setAchievement(achievement.title);
+              break;
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error loading score:', err);
+      }
+    };
+    
+    loadScore();
+  }, []);
 
   useEffect(() => {
     const loadKittyPreview = async () => {
@@ -1942,36 +1984,69 @@ const MenuScreen: React.FC<MenuScreenProps> = ({
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-8">
-        <div className="w-48 h-48 bg-white rounded-full shadow-lg flex items-center justify-center">
-          {loading ? (
-            <div className="loading-spinner" />
-          ) : (
-            <div className="kitty-svg-container relative w-40 h-40">
-              <div dangerouslySetInnerHTML={{ __html: kittyParts.body }} className="absolute inset-0 z-10" />
-              <div dangerouslySetInnerHTML={{ __html: kittyParts.mouth }} className="absolute inset-0 z-20" />
-              <div dangerouslySetInnerHTML={{ __html: kittyParts.eyes }} className="absolute inset-0 z-30" />
+        {/* Score Display */}
+        <div className="flex items-center gap-4">
+          <div className="bg-purple-100 rounded-lg px-4 py-2 flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-purple-600" />
+            <span className="text-purple-600 font-bold">{score} points</span>
+          </div>
+          {achievement && (
+            <div className="bg-yellow-100 rounded-lg px-4 py-2 flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-yellow-600" />
+              <span className="text-yellow-600 font-medium">{achievement}</span>
             </div>
           )}
         </div>
 
-        <div className="w-full max-w-xs">
+{/* Kitty Display with Background */}
+<div className="relative">
+  <div className="w-48 h-48 rounded-full shadow-lg flex items-center justify-center relative overflow-hidden">
+    {/* Background image */}
+    <div 
+      className="absolute inset-0"
+      style={{
+        backgroundImage: `url(${bgImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center 85%', // This will push the background up
+        transform: 'scale(1.1)', 
+        animation: 'subtle-float 3s ease-in-out infinite', // Gentle floating animation
+      }}
+    />
+    {loading ? (
+      <div className="loading-spinner" />
+    ) : (
+      <div className="kitty-svg-container relative w-40 h-40">
+        <div dangerouslySetInnerHTML={{ __html: kittyParts.body }} className="absolute inset-0 z-10" />
+        <div dangerouslySetInnerHTML={{ __html: kittyParts.mouth }} className="absolute inset-0 z-20" />
+        <div dangerouslySetInnerHTML={{ __html: kittyParts.eyes }} className="absolute inset-0 z-30" />
+      </div>
+    )}
+  </div>
+  
+  {/* Decorative circles */}
+  <div className="absolute -top-2 -left-2 w-4 h-4 bg-purple-200 rounded-full" />
+  <div className="absolute -bottom-1 right-2 w-3 h-3 bg-purple-300 rounded-full" />
+  <div className="absolute top-2 -right-1 w-2 h-2 bg-purple-400 rounded-full" />
+</div>
 
-        <button
+{/* Buttons with increased spacing */}
+<div className="w-full max-w-xs flex flex-col gap-4">
+  <button
     onClick={handleActivate}
-    className="w-full flex items-center justify-center gap-2 bg-purple-600 text-white py-3 px-4 rounded-xl hover:bg-purple-700 transition-colors"
+    className="w-full flex items-center justify-center gap-2 bg-purple-600 text-white py-4 px-4 rounded-xl hover:bg-purple-700 transition-all duration-200 hover:shadow-lg"
   >
     <Play className="w-5 h-5" />
     <span>Activate Kitty</span>
-    </button>
-  
-          <button
-            onClick={onCustomize}
-            className="w-full flex items-center justify-center gap-2 bg-purple-600 text-white py-3 px-4 rounded-xl hover:bg-purple-700 transition-colors"
-          >
-            <Palette className="w-5 h-5" />
-            <span>Customize Your Kitty</span>
-          </button>
-        </div>
+  </button>
+
+  <button
+    onClick={onCustomize}
+    className="w-full flex items-center justify-center gap-2 bg-purple-600 text-white py-4 px-4 rounded-xl hover:bg-purple-700 transition-all duration-200 hover:shadow-lg"
+  >
+    <Palette className="w-5 h-5" />
+    <span>Customize Your Kitty</span>
+  </button>
+</div>
       </div>
     </div>
   );
@@ -2024,6 +2099,91 @@ const Colors = {
 export default MenuScreen;
 ```
 
+# src/components/ScoreDisplay.tsx
+
+```tsx
+import React, { useState, useEffect } from 'react';
+import { Trophy, Target, Zap, LucideIcon } from 'lucide-react';
+import { Alert, AlertTitle } from './Alert';
+
+interface Achievement {
+    threshold: number;
+    title: string;
+    icon: LucideIcon;
+  }
+  
+  export const Achievements: Record<string, Achievement> = {
+    BEGINNER: { threshold: 10, title: "Laser Newbie", icon: Target },
+    INTERMEDIATE: { threshold: 50, title: "Zap Master", icon: Zap },
+    EXPERT: { threshold: 100, title: "Destruction King", icon: Trophy }
+  };
+  
+  interface ScoreDisplayProps {
+    score: number;
+    newAchievement?: { title: string } | null;
+  }
+  
+  const ScoreDisplay: React.FC<ScoreDisplayProps> = ({ score, newAchievement }) => {
+    const [showScoreAnimation, setShowScoreAnimation] = useState(false);
+    const [prevScore, setPrevScore] = useState(score);
+    
+    useEffect(() => {
+      if (score !== prevScore) {
+        setShowScoreAnimation(true);
+        const timer = setTimeout(() => setShowScoreAnimation(false), 1000);
+        setPrevScore(score);
+        return () => clearTimeout(timer);
+      }
+    }, [score, prevScore]);
+  
+    const getCurrentAchievement = (): Achievement | undefined => {
+      return Object.values(Achievements)
+        .reverse()
+        .find(achievement => score >= achievement.threshold);
+    };
+  
+    const achievement = getCurrentAchievement();
+  
+    return (
+      <div className="fixed top-4 right-4 flex flex-col items-end gap-2 z-50">
+        <div className="bg-white rounded-lg shadow-lg p-3 flex items-center gap-2">
+          <div className="text-purple-600 font-bold">
+            Score: {score}
+            {showScoreAnimation && (
+              <span className="ml-2 text-green-500 animate-bounce inline-block">
+                +1
+              </span>
+            )}
+          </div>
+        </div>
+  
+        {achievement && (
+          <div className="bg-white rounded-lg shadow-lg p-3 flex items-center gap-2">
+            {React.createElement(achievement.icon, {
+              className: "w-5 h-5 text-yellow-500"
+            })}
+            <span className="text-sm font-medium text-gray-700">
+              {achievement.title}
+            </span>
+          </div>
+        )}
+  
+        {newAchievement && (
+          <Alert className="animate-in slide-in-from-right">
+            <AlertTitle className="flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-yellow-500" />
+              New Achievement Unlocked!
+            </AlertTitle>
+            {newAchievement.title}
+          </Alert>
+        )}
+      </div>
+    );
+  };
+  
+  export default ScoreDisplay;
+```
+
 # src/config/firebase.ts
 
 ```ts
@@ -2050,6 +2210,11 @@ export const db = getFirestore(app);
 // contentScript.ts
 export {};
 
+interface ScoreData {
+  score: number;
+  achievements: string[];
+}
+
 interface Position {
  x: number;
  y: number;
@@ -2064,17 +2229,96 @@ interface KittyData {
 class LaserCat {
  private kittyContainer: HTMLDivElement | null = null;
  private eyePosition = { x: 0, y: 0 };
+ private score: number = 0;
+ private achievements: string[] = [];
+ private scoreDisplay: HTMLElement | null = null;
  
  constructor(container: HTMLDivElement) {
-   this.kittyContainer = container;
-   this.setupListeners();
-   this.addStyles();
+  this.kittyContainer = container;
+  this.setupListeners();
+  this.addStyles();
+  this.initializeScore();
+  this.createScoreDisplay();
  }
 
  private setupListeners() {
    document.addEventListener('click', this.handleClick.bind(this));
    document.addEventListener('mousemove', this.handleMouseMove.bind(this));
  }
+
+ private async initializeScore() {
+  try {
+    const data = await chrome.storage.local.get('laserCatScore');
+    if (data.laserCatScore) {
+      this.score = data.laserCatScore.score;
+      this.achievements = data.laserCatScore.achievements;
+      this.updateScoreDisplay();
+    }
+  } catch (err) {
+    console.error('Error loading score:', err);
+  }
+}
+
+private async saveScore() {
+  try {
+    await chrome.storage.local.set({
+      laserCatScore: {
+        score: this.score,
+        achievements: this.achievements
+      }
+    });
+  } catch (err) {
+    console.error('Error saving score:', err);
+  }
+}
+
+private checkAchievements(): string | null {
+  const Achievements = {
+    BEGINNER: { threshold: 10, title: "Laser Newbie" },
+    INTERMEDIATE: { threshold: 50, title: "Zap Master" },
+    EXPERT: { threshold: 100, title: "Destruction King" }
+  };
+
+  for (const [id, data] of Object.entries(Achievements)) {
+    if (this.score >= data.threshold && !this.achievements.includes(id)) {
+      this.achievements.push(id);
+      this.saveScore();
+      return data.title;
+    }
+  }
+  return null;
+}
+private createScoreDisplay() {
+  this.scoreDisplay = document.createElement('div');
+  this.scoreDisplay.className = 'laser-cat-score';
+  this.scoreDisplay.setAttribute('data-score', this.score.toString());
+  document.body.appendChild(this.scoreDisplay);
+}
+
+private updateScoreDisplay() {
+  if (this.scoreDisplay) {
+    this.scoreDisplay.setAttribute('data-score', this.score.toString());
+  }
+}
+
+private showAchievementNotification(achievement: string) {
+  const notification = document.createElement('div');
+  notification.className = 'achievement-notification';
+  notification.innerHTML = `
+    <div class="achievement-content">
+      <svg class="trophy-icon" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M12 8l-4-4h8l-4 4zm-6 6h12v-4H6v4zm14-8h-4l4 4v-4zm-4 12h4v-4l-4 4zm-10 0l4-4H6v4z"/>
+      </svg>
+      <div class="achievement-text">
+        <div class="achievement-title">Achievement Unlocked!</div>
+        <div class="achievement-name">${achievement}</div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(notification);
+  setTimeout(() => notification.remove(), 3000);
+}
+
 
  private handleClick(e: MouseEvent) {
   const target = e.target as HTMLElement;
@@ -2217,11 +2461,20 @@ class LaserCat {
  }
 
  private removeTarget(target: HTMLElement) {
-   target.style.transition = 'all 0.3s ease-out';
-   target.style.transform = 'scale(0.8)';
-   target.style.opacity = '0';
-   setTimeout(() => target.remove(), 300);
- }
+  target.style.transition = 'all 0.3s ease-out';
+  target.style.transform = 'scale(0.8)';
+  target.style.opacity = '0';
+  setTimeout(() => {
+    target.remove();
+    this.score++;
+    this.updateScoreDisplay();
+    const newAchievement = this.checkAchievements();
+    if (newAchievement) {
+      this.showAchievementNotification(newAchievement);
+    }
+    this.saveScore();
+  }, 300);
+}
 
  private isDestructible(element: HTMLElement): boolean {
    const nonDestructibleTags = ['HTML', 'BODY', 'HEAD', 'SCRIPT', 'STYLE', 'LINK', 'META'];
@@ -2248,6 +2501,64 @@ class LaserCat {
     svg circle, svg path, svg ellipse {
       transition: fill 0.1s ease, stroke 0.1s ease;
     }
+    .laser-cat-score {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        font-family: Arial, sans-serif;
+        font-weight: bold;
+        z-index: 99999;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      
+      .laser-cat-score::before {
+        content: 'Score: ' attr(data-score);
+        color: #6b46c1;
+      }
+      
+      .achievement-notification {
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        background: white;
+        padding: 16px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        z-index: 99999;
+        animation: slideIn 0.3s ease-out;
+      }
+      
+      .achievement-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      
+      .trophy-icon {
+        width: 24px;
+        height: 24px;
+        color: #eab308;
+      }
+      
+      .achievement-title {
+        font-weight: bold;
+        color: #4b5563;
+      }
+      
+      .achievement-name {
+        color: #6b7280;
+      }
+      
+      @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
   `;
   document.head.appendChild(style);
 }
@@ -2544,6 +2855,42 @@ export const useAuth = () => {
   }
   return context;
 };
+```
+
+# src/declarations.d.ts
+
+```ts
+/// <reference types="react" />
+
+declare module '*.webp' {
+    const src: string;
+    export default src;
+  }
+  
+  declare module '*.png' {
+    const src: string;
+    export default src;
+  }
+  
+  declare module '*.jpg' {
+    const src: string;
+    export default src;
+  }
+  
+  declare module '*.jpeg' {
+    const src: string;
+    export default src;
+  }
+  
+  declare module '*.gif' {
+    const src: string;
+    export default src;
+  }
+  
+  declare module '*.svg' {
+    const src: string;
+    export default src;
+  }
 ```
 
 # src/index.css
@@ -2867,6 +3214,7 @@ export type PrimaryColorType = {
   cottoncandy: string;
 };
 
+
 export type ColorKeyType = keyof PrimaryColorType;
 ```
 
@@ -2928,7 +3276,10 @@ module.exports = {
     "jsx": "react-jsx",
     "outDir": "./build"
   },
-  "include": ["src"]
+  "include": [
+    "src",
+    "src/declarations.d.ts"
+  ],
 }
 ```
 
@@ -2977,7 +3328,11 @@ module.exports = {
      {
        test: /\.(png|jpg|jpeg|gif)$/i,
        type: 'asset/resource'
-     }
+     },
+     {
+      test: /\.(png|jpg|jpeg|gif|webp)$/i,
+      type: 'asset/resource'
+    }
    ]
  },
  plugins: [

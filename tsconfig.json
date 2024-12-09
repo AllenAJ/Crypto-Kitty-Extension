@@ -17,5 +17,8 @@
     "jsx": "react-jsx",
     "outDir": "./build"
   },
-  "include": ["src"]
+  "include": [
+    "src",
+    "src/declarations.d.ts"
+  ],
 }

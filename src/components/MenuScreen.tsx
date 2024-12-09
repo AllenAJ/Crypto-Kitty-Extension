@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Palette, LogOut, Play } from 'lucide-react';
+import { Palette, LogOut, Play, Trophy } from 'lucide-react';
 import { getUserPreferences } from '../services/userPreferences';
+import bgImage from './bg.webp';
 
 interface MenuScreenProps {
   onCustomize: () => void;
@@ -19,6 +20,8 @@ const MenuScreen: React.FC<MenuScreenProps> = ({
   const { user, userId, logout } = useAuth();
   const [kittyParts, setKittyParts] = useState({ body: '', eyes: '', mouth: '' });
   const [loading, setLoading] = useState(true);
+  const [score, setScore] = useState(0);
+  const [achievement, setAchievement] = useState<string | null>(null);
 
   const replaceColors = (svgContent: string, colors: {
     primary: Record<string, string>;
@@ -58,6 +61,37 @@ const MenuScreen: React.FC<MenuScreenProps> = ({
     
     return result;
   };
+
+  useEffect(() => {
+    // Load score from chrome storage
+    const loadScore = async () => {
+      try {
+        const data = await chrome.storage.local.get('laserCatScore');
+        if (data.laserCatScore) {
+          const currentScore = data.laserCatScore.score;
+          setScore(currentScore);
+          
+          // Get highest achievement
+          const achievementLevels = {
+            EXPERT: { threshold: 100, title: "Destruction King" },
+            INTERMEDIATE: { threshold: 50, title: "Zap Master" },
+            BEGINNER: { threshold: 10, title: "Laser Newbie" }
+          };
+          
+          for (const [level, achievement] of Object.entries(achievementLevels)) {
+            if (currentScore >= achievement.threshold) {
+              setAchievement(achievement.title);
+              break;
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error loading score:', err);
+      }
+    };
+    
+    loadScore();
+  }, []);
 
   useEffect(() => {
     const loadKittyPreview = async () => {
@@ -127,36 +161,69 @@ const MenuScreen: React.FC<MenuScreenProps> = ({
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-8">
-        <div className="w-48 h-48 bg-white rounded-full shadow-lg flex items-center justify-center">
-          {loading ? (
-            <div className="loading-spinner" />
-          ) : (
-            <div className="kitty-svg-container relative w-40 h-40">
-              <div dangerouslySetInnerHTML={{ __html: kittyParts.body }} className="absolute inset-0 z-10" />
-              <div dangerouslySetInnerHTML={{ __html: kittyParts.mouth }} className="absolute inset-0 z-20" />
-              <div dangerouslySetInnerHTML={{ __html: kittyParts.eyes }} className="absolute inset-0 z-30" />
+        {/* Score Display */}
+        <div className="flex items-center gap-4">
+          <div className="bg-purple-100 rounded-lg px-4 py-2 flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-purple-600" />
+            <span className="text-purple-600 font-bold">{score} points</span>
+          </div>
+          {achievement && (
+            <div className="bg-yellow-100 rounded-lg px-4 py-2 flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-yellow-600" />
+              <span className="text-yellow-600 font-medium">{achievement}</span>
             </div>
           )}
         </div>
 
-        <div className="w-full max-w-xs">
+{/* Kitty Display with Background */}
+<div className="relative">
+  <div className="w-48 h-48 rounded-full shadow-lg flex items-center justify-center relative overflow-hidden">
+    {/* Background image */}
+    <div 
+      className="absolute inset-0"
+      style={{
+        backgroundImage: `url(${bgImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center 85%', // This will push the background up
+        transform: 'scale(1.1)', 
+        animation: 'subtle-float 3s ease-in-out infinite', // Gentle floating animation
+      }}
+    />
+    {loading ? (
+      <div className="loading-spinner" />
+    ) : (
+      <div className="kitty-svg-container relative w-40 h-40">
+        <div dangerouslySetInnerHTML={{ __html: kittyParts.body }} className="absolute inset-0 z-10" />
+        <div dangerouslySetInnerHTML={{ __html: kittyParts.mouth }} className="absolute inset-0 z-20" />
+        <div dangerouslySetInnerHTML={{ __html: kittyParts.eyes }} className="absolute inset-0 z-30" />
+      </div>
+    )}
+  </div>
+  
+  {/* Decorative circles */}
+  <div className="absolute -top-2 -left-2 w-4 h-4 bg-purple-200 rounded-full" />
+  <div className="absolute -bottom-1 right-2 w-3 h-3 bg-purple-300 rounded-full" />
+  <div className="absolute top-2 -right-1 w-2 h-2 bg-purple-400 rounded-full" />
+</div>
 
-        <button
+{/* Buttons with increased spacing */}
+<div className="w-full max-w-xs flex flex-col gap-4">
+  <button
     onClick={handleActivate}
-    className="w-full flex items-center justify-center gap-2 bg-purple-600 text-white py-3 px-4 rounded-xl hover:bg-purple-700 transition-colors"
+    className="w-full flex items-center justify-center gap-2 bg-purple-600 text-white py-4 px-4 rounded-xl hover:bg-purple-700 transition-all duration-200 hover:shadow-lg"
   >
     <Play className="w-5 h-5" />
     <span>Activate Kitty</span>
-    </button>
-  
-          <button
-            onClick={onCustomize}
-            className="w-full flex items-center justify-center gap-2 bg-purple-600 text-white py-3 px-4 rounded-xl hover:bg-purple-700 transition-colors"
-          >
-            <Palette className="w-5 h-5" />
-            <span>Customize Your Kitty</span>
-          </button>
-        </div>
+  </button>
+
+  <button
+    onClick={onCustomize}
+    className="w-full flex items-center justify-center gap-2 bg-purple-600 text-white py-4 px-4 rounded-xl hover:bg-purple-700 transition-all duration-200 hover:shadow-lg"
+  >
+    <Palette className="w-5 h-5" />
+    <span>Customize Your Kitty</span>
+  </button>
+</div>
       </div>
     </div>
   );
