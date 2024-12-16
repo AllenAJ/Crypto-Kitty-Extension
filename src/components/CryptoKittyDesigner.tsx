@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { saveUserPreferences, getUserPreferences } from '../services/userPreferences';
 import { Mail, LogOut, ArrowLeft } from 'lucide-react';
+import { contractService } from '../services/contractService';
+import { Alert, AlertTitle, AlertDescription } from './Alert';
+import { ethers } from 'ethers';
 
 // Enums
 enum BodyType {
@@ -45,6 +48,7 @@ enum MouthType {
   pouty = 'pouty',
   soserious = 'soserious',
   gerbil = 'gerbil',
+  exclusive = 'exclusive' // New exclusive mouth type
 }
 
 interface KittyParts {
@@ -60,7 +64,10 @@ interface CryptoKittyDesignerProps {
 const CryptoKittyDesigner: React.FC<CryptoKittyDesignerProps> = ({ onBack }) => {
   const { isAuthenticated, user, userId } = useAuth();
   const [preferencesLoading, setPreferencesLoading] = useState(false);
-
+  const [isMinting, setIsMinting] = useState(false);
+  const [mintError, setMintError] = useState<string | null>(null);
+  const [mintSuccess, setMintSuccess] = useState<string | null>(null);
+  //const [hasExclusiveAccess, setHasExclusiveAccess] = useState(false);
   // Color definitions
   const Colors = {
     primary: {
@@ -153,6 +160,31 @@ const IDLE_MOVEMENT_RADIUS = 0.2; // Reduced from 0.3
         y: Math.sin(angle * 1.5) * IDLE_MOVEMENT_RADIUS // Use different frequency for y to create more natural movement
       };
     };
+
+      // Check if user has the exclusive NFT
+      const checkNFTAccess = async (userAddress: string): Promise<boolean> => {
+        if (!window.ethereum) return false;
+        
+        try {
+          const provider = new ethers.providers.Web3Provider(window.ethereum);
+          const nftContract = new ethers.Contract(
+            '0x05aA491820662b131d285757E5DA4b74BD0F0e5F',
+            ['function balanceOf(address owner) view returns (uint256)'],
+            provider
+          );
+          
+          const balance = await nftContract.balanceOf(userAddress);
+          return balance > BigInt(0);
+        } catch (error) {
+          console.error('Error checking NFT access:', error);
+          return false;
+        }
+      };
+      // Update the Mouth section render logic
+      const getMouthOptions = () => {
+        const baseMouths = Object.values(MouthType);
+        return baseMouths;
+      };
   
     const handleLogout = async () => {
       // Get logout function from auth context
@@ -161,6 +193,35 @@ const IDLE_MOVEMENT_RADIUS = 0.2; // Reduced from 0.3
         await logout();
       } catch (error) {
         console.error('Error logging out:', error);
+      }
+    };
+
+    const handleMint = async () => {
+      setIsMinting(true);
+      setMintError(null);
+      setMintSuccess(null);
+    
+      try {
+        const result = await contractService.mintKitty({
+          bodyType: selectedBody,
+          pattern: selectedPattern,
+          eyeType: selectedEye,
+          mouthType: selectedMouth,
+          primaryColor: selectedColors.primary,
+          secondaryColor: selectedColors.secondary,
+          tertiaryColor: selectedColors.tertiary,
+          eyeColor: selectedColors.eyeColor
+        });
+    
+        if (result.status === 'redirected') {
+          setMintSuccess('Redirecting to minting page...');
+          // The contractService will handle the redirect
+        }
+      } catch (error) {
+        setMintError(error instanceof Error ? error.message : 'Failed to start minting process');
+        console.error('Minting error:', error);
+      } finally {
+        setIsMinting(false);
       }
     };
 
@@ -370,6 +431,22 @@ const IDLE_MOVEMENT_RADIUS = 0.2; // Reduced from 0.3
     loadUserPreferences();
   }, [user, userId]);
 
+  // useEffect(() => {
+  //   const checkAccess = async () => {
+  //     if (user) {
+  //       const hasAccess = await checkNFTAccess(user);
+  //       setHasExclusiveAccess(hasAccess);
+        
+  //       // Reset mouth selection if user loses access to exclusive mouth
+  //       if (!hasAccess && selectedMouth === MouthType.exclusive) {
+  //         setSelectedMouth(MouthType.soserious);
+  //       }
+  //     }
+  //   };
+  
+  //   checkAccess();
+  // }, [user]);
+
   // Save preferences when they change
   useEffect(() => {
     if (!user || !userId) return;
@@ -489,7 +566,7 @@ const IDLE_MOVEMENT_RADIUS = 0.2; // Reduced from 0.3
           <span>Back to Menu</span>
         </button>
       </div>
-
+  
       <div className="flex flex-col h-full overflow-hidden">
         <div className="w-full bg-white border-b p-4">
           <div className="kitty-svg-container mx-auto relative" style={{ width: '200px', height: '200px' }}>
@@ -515,7 +592,7 @@ const IDLE_MOVEMENT_RADIUS = 0.2; // Reduced from 0.3
             )}
           </div>
         </div>
-
+  
         {/* Scrollable Controls Section */}
         <div className="flex-1 overflow-y-auto">
           <div className="p-4 space-y-6" ref={containerRef}>
@@ -538,7 +615,7 @@ const IDLE_MOVEMENT_RADIUS = 0.2; // Reduced from 0.3
                 ))}
               </div>
             </div>
-
+  
             {/* Pattern */}
             <div>
               <h3 className="text-sm font-medium text-gray-700 mb-2">Pattern</h3>
@@ -558,8 +635,8 @@ const IDLE_MOVEMENT_RADIUS = 0.2; // Reduced from 0.3
                 ))}
               </div>
             </div>
-
-            {/* Eyes - Restored */}
+  
+            {/* Eyes */}
             <div>
               <h3 className="text-sm font-medium text-gray-700 mb-2">Eyes</h3>
               <div className="flex flex-wrap gap-2">
@@ -578,27 +655,40 @@ const IDLE_MOVEMENT_RADIUS = 0.2; // Reduced from 0.3
                 ))}
               </div>
             </div>
+  
+<div>
+  <h3 className="text-sm font-medium text-gray-700 mb-2">Mouth Style</h3>
+  <div className="flex flex-wrap gap-2">
+  {getMouthOptions().map((mouthType) => (
+      <button
+        key={mouthType}
+        onClick={() => setSelectedMouth(mouthType)}
+        className={`
+          px-3 py-1.5 text-xs rounded-lg transition-all
+          ${selectedMouth === mouthType 
+            ? 'bg-purple-600 text-white' 
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}
+          ${mouthType === MouthType.exclusive 
+            ? 'border-2 border-yellow-400 flex items-center gap-1' 
+            : ''}
+        `}
+      >
+        {mouthType}
+        {mouthType === MouthType.exclusive && (
+          <span className="text-yellow-500">⭐</span>
+        )}
+      </button>
+    ))}
+  </div>
 
-            {/* Mouth - Restored */}
-            <div>
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Mouth</h3>
-              <div className="flex flex-wrap gap-2">
-                {Object.values(MouthType).map(mouthType => (
-                  <button
-                    key={mouthType}
-                    onClick={() => setSelectedMouth(mouthType)}
-                    className={`px-3 py-1.5 text-xs rounded-lg transition-all ${
-                      selectedMouth === mouthType
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {mouthType}
-                  </button>
-                ))}
-              </div>
-            </div>
-
+  <div className="mt-2 p-2 bg-purple-50 rounded-lg">
+    <div className="flex items-center gap-2 text-sm text-purple-700">
+      <span className="text-lg">🎁</span>
+      <span>NFT ownership will be verified on the minting page</span>
+    </div>
+  </div>
+</div>
+  
             {/* Color Sections */}
             <div className="space-y-4">
               {/* Primary Colors */}
@@ -618,7 +708,7 @@ const IDLE_MOVEMENT_RADIUS = 0.2; // Reduced from 0.3
                   ))}
                 </div>
               </div>
-
+  
               {/* Secondary Colors */}
               <div>
                 <h3 className="text-sm font-medium text-gray-700 mb-2">Secondary Color</h3>
@@ -636,7 +726,7 @@ const IDLE_MOVEMENT_RADIUS = 0.2; // Reduced from 0.3
                   ))}
                 </div>
               </div>
-
+  
               {/* Tertiary Colors */}
               <div>
                 <h3 className="text-sm font-medium text-gray-700 mb-2">Tertiary Color</h3>
@@ -654,7 +744,7 @@ const IDLE_MOVEMENT_RADIUS = 0.2; // Reduced from 0.3
                   ))}
                 </div>
               </div>
-
+  
               {/* Eye Colors */}
               <div>
                 <h3 className="text-sm font-medium text-gray-700 mb-2">Eye Color</h3>
@@ -675,9 +765,9 @@ const IDLE_MOVEMENT_RADIUS = 0.2; // Reduced from 0.3
             </div>
           </div>
         </div>
-
-        {/* Random Button - Fixed at bottom */}
-        <div className="p-4 bg-white border-t">
+  
+        {/* Bottom Fixed Section with Buttons */}
+        <div className="p-4 bg-white border-t space-y-4">
           <button 
             onClick={generateRandomKitty}
             className="w-full bg-gradient-to-r from-purple-500 to-purple-600 
@@ -687,6 +777,40 @@ const IDLE_MOVEMENT_RADIUS = 0.2; // Reduced from 0.3
           >
             Random Kitty
           </button>
+  
+          <button 
+            onClick={handleMint}
+            disabled={isMinting}
+            className="w-full bg-gradient-to-r from-green-500 to-green-600 
+              text-white px-4 py-2 rounded-lg text-sm font-medium 
+              hover:from-green-600 hover:to-green-700
+              transition-all duration-200 hover:shadow-lg
+              disabled:opacity-50 disabled:cursor-not-allowed
+              flex items-center justify-center gap-2"
+          >
+            {isMinting ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Minting...
+              </>
+            ) : (
+              'Mint as NFT'
+            )}
+          </button>
+  
+          {mintSuccess && (
+            <Alert variant="success">
+              <AlertTitle>Success!</AlertTitle>
+              <AlertDescription>{mintSuccess}</AlertDescription>
+            </Alert>
+          )}
+  
+          {mintError && (
+            <Alert variant="destructive">
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{mintError}</AlertDescription>
+            </Alert>
+          )}
         </div>
       </div>
     </div>

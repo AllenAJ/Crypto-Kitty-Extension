@@ -1,4 +1,14 @@
 // contentScript.ts
+import { ethers } from 'ethers';
+
+const CONTRACT_ADDRESS = '0x4A7D962BE6AF827E7f6daEf3cF264e9B3c95fCe7';
+const CONTRACT_ABI = [
+  "function mintKitty(bytes32 attributes, bytes32 colors) public payable returns (uint256)",
+  "function getKitty(uint256 tokenId) public view returns (tuple(bytes32 attributes, bytes32 colors))",
+  "function ownerOf(uint256 tokenId) public view returns (address)"
+];
+
+
 export {};
 
 interface ScoreData {
@@ -438,14 +448,63 @@ function makeDraggable(element: HTMLElement) {
  element.addEventListener('mousedown', handleMouseDown);
 }
 
-chrome.runtime.onMessage.addListener((request) => {
- if (request.type === 'SHOW_KITTY') {
-   const container = createKittyContainer(request.kittyData);
-   laserCat = new LaserCat(container);
- } else if (request.type === 'HIDE_KITTY') {
-   if (kittyContainer) {
-     kittyContainer.remove();
-     kittyContainer = null;
-   }
- }
+async function handleMintKitty(kittyData: {
+  attributes: string;
+  colors: string;
+  value: string;
+}) {
+  try {
+    // Check if MetaMask is installed
+    if (typeof window.ethereum === 'undefined') {
+      throw new Error('Please install MetaMask to use this feature');
+    }
+
+    // Type assertion to let TypeScript know ethereum exists
+    const ethereum = window.ethereum as any;
+
+    // Request account access
+    await ethereum.request({ method: 'eth_requestAccounts' });
+    
+    // Create Web3 provider and contract instance
+    const provider = new ethers.providers.Web3Provider(ethereum);
+    const signer = provider.getSigner();
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+    // Send transaction
+    const tx = await contract.mintKitty(
+      kittyData.attributes,
+      kittyData.colors,
+      {
+        value: ethers.utils.parseEther(kittyData.value)
+      }
+    );
+
+    // Wait for transaction to be mined
+    const receipt = await tx.wait();
+    return { receipt };
+  } catch (error) {
+    console.error('Minting error:', error);
+    throw error;
+  }
+}
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === 'CHECK_CONTENT_SCRIPT') {
+    sendResponse({ status: 'ready' });
+    return true;
+  }
+  if (request.type === 'SHOW_KITTY') {
+    const container = createKittyContainer(request.kittyData);
+    laserCat = new LaserCat(container);
+  } else if (request.type === 'HIDE_KITTY') {
+    if (kittyContainer) {
+      kittyContainer.remove();
+      kittyContainer = null;
+    }
+  } else if (request.type === 'MINT_KITTY') {
+    handleMintKitty(request.kittyData)
+      .then(receipt => sendResponse(receipt))
+      .catch(error => sendResponse({ error: error.message }));
+    return true; // Required for async response
+  }
 });

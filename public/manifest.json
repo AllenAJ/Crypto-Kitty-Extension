@@ -17,16 +17,21 @@
   "permissions": [
     "storage",
     "activeTab",
-    "tabs"
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "background.js",
     "type": "module"
   },
-    "web_accessible_resources": [{
+  "web_accessible_resources": [{
     "resources": [
       "sounds/*",
-      "cattributes/*"],
+      "cattributes/*"
+    ],
     "matches": ["<all_urls>"]
   }],
   "content_scripts": [
